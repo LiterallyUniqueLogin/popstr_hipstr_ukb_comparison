@@ -22,7 +22,7 @@ task get_batch_files {
   runtime {
     dx_timeout: "30m"
     memory: "2GB"
-    docker: "quay.io/thedevilinthedetails/work/bcftools_trtools_dxpy:v1.0"
+    docker: "quay.io/thedevilinthedetails/work/bcftools_trtools:v1.0"
   }
 }
 
@@ -39,12 +39,13 @@ task subset_batch {
     mkdir subsetted_calls
 
     for file in ~{sep=" " batch_vcfs_list} ; do
-      echo $file
-      #envsetup dx download 'Bulk/Previous WGS releases/GATK and GraphTyper WGS/Microsatellites [150k release]/$file' 
-      envsetup bcftools view -R ~{my_calls_bed} $file > subsetted_calls/$(echo $file | sed -e 's/\.gz$//')
+      echo "Working on $file"
+      envsetup bcftools view -R ~{my_calls_bed} $file > subsetted_calls/$(basename $file | sed -e 's/\.gz$//')
     done 
 
+    echo "Working on merging"
     envsetup bcftools concat subsetted_calls/* -o subsetted_calls_~{suffix}.vcf.gz -O z
+    echo "done"
   >>>
 
   output {
@@ -53,8 +54,8 @@ task subset_batch {
 
   runtime {
     dx_timeout: "24h"
-    memory: "2GB"
-    docker: "get_batch_filesquay.io/thedevilinthedetails/work/bcftools_trtools_dxpy:v1.0"
+    memory: "10GB"
+    docker: "quay.io/thedevilinthedetails/work/bcftools_trtools:v1.0"
   }
 }
 
@@ -73,35 +74,32 @@ task concat_batches {
 
   runtime {
     dx_timeout: "24h"
-    memory: "2GB"
-    docker: "quay.io/thedevilinthedetails/work/bcftools_trtools_dxpy:v1.0"
+    memory: "50GB"
+    docker: "quay.io/thedevilinthedetails/work/bcftools_trtools:v1.0"
   }
 }
 
 workflow subset_all {
   input {
     File popstr_files_list = 'dx://UKB_GymrekLab_v2:/popstr_comparison/popstr_file_ids.txt'
-    File my_calls_bed = 'dx://UKB_GymrekLab_v2:/popstr_comparison/Margoliash_paper_str_calls_20230907.vcf.gz'
+    File my_calls_bed = 'dx://UKB_GymrekLab_v2:/popstr_comparison/Margoliash_paper_str_calls.bed'
   }
 
   # n files = len(popstr_files_list)/2 == 54182
   # thus 109 batches at 500 files per batch
 
-  #scatter (batch in range(109)) {
-  scatter (batch in range(1)) {
+  scatter (batch in range(109)) {
     call get_batch_files as batch_vcf_files { input :
       popstr_files_list = popstr_files_list,
       batch = batch,
-      #batch_size = 500
-      batch_size = 10,
+      batch_size = 500
       idx = 1
     }
 
   call get_batch_files as batch_idx_files { input :
       popstr_files_list = popstr_files_list,
       batch = batch,
-      #batch_size = 500
-      batch_size = 10,
+      batch_size = 500
       idx = 2
     }
 
